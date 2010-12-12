@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:orientation="vertical" android:background="#003299"
+	android:layout_width="fill_parent" android:layout_height="fill_parent">
+
+	<LinearLayout android:orientation="horizontal"
+		android:layout_width="fill_parent" android:background="#003299"
+		android:layout_height="fill_parent" android:layout_weight="1">
+		<EditText android:text="" android:layout_width="wrap_content" android:id="@+id/desc"
+			android:layout_height="fill_parent" android:layout_weight="1" android:gravity="top"
+			android:padding="5px" android:maxHeight="250px" android:fadingEdge="horizontal|vertical"/>
+
+	</LinearLayout>
+
+	<LinearLayout android:orientation="horizontal"
+		android:layout_width="fill_parent" android:layout_height="wrap_content"
+		android:layout_weight="0">
+
+
+		<Button android:text="Add Photo" android:id="@+id/addPhoto"
+			android:layout_width="fill_parent" android:layout_height="wrap_content"
+			android:layout_weight="1"></Button>
+		<Button android:text="Capture Photo" android:id="@+id/capturePhoto"
+			android:layout_width="fill_parent" android:layout_height="wrap_content"
+			android:layout_weight="1"></Button>
+
+	</LinearLayout>
+
+	<LinearLayout android:orientation="horizontal"
+		android:layout_width="fill_parent" android:layout_height="wrap_content"
+		android:layout_weight="0">
+
+		<CheckBox android:text="    Send Anonymous" android:id="@+id/sendAnonymous"
+			android:layout_width="wrap_content" android:layout_height="wrap_content"></CheckBox>
+
+	</LinearLayout>
+
+	<LinearLayout android:orientation="horizontal"
+		android:layout_width="fill_parent" android:layout_height="wrap_content"
+		android:layout_weight="0">
+
+
+		<Button android:text="Send Information" android:id="@+id/submit"
+			android:layout_width="fill_parent" android:layout_height="wrap_content"></Button>
+
+
+	</LinearLayout>
+
+</LinearLayout>
+
