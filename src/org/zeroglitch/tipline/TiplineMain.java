@@ -28,22 +28,27 @@ import org.zeroglitch.util.DataFormatter;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
+import android.os.SystemClock;
 import android.provider.BaseColumns;
 import android.provider.Contacts;
 import android.provider.MediaStore;
@@ -56,9 +61,12 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
-public class TiplineMain extends Activity implements OnClickListener {
+public class TiplineMain extends Activity implements OnClickListener,
+		LocationListener {
 	private static final int CAPTURE_IMAGE_ACTIVITY_REQUEST_CODE = 2;
 	private static final int SELECT_IMAGE = 1;
 	private Button capturePhoto;
@@ -76,8 +84,15 @@ public class TiplineMain extends Activity implements OnClickListener {
 	private static double latitude;
 	private File imageFile;
 	private String fileName;
-	
 
+	private ArrayList<Communication> comms = null;
+	private TextView status;
+	private LocationManager lm;
+	private boolean gps_enabled;
+	private boolean network_enabled;
+
+	private int increment;
+	private ProgressDialog dialog;
 
 	/** Called when the activity is first created. */
 	@Override
@@ -100,21 +115,29 @@ public class TiplineMain extends Activity implements OnClickListener {
 
 		desc = (EditText) findViewById(R.id.desc);
 		desc.setOnClickListener(this);
-		
-		LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-		Location location = lm
-				.getLastKnownLocation(LocationManager.GPS_PROVIDER);
 
-		if (location != null) {
-			longitude = location.getLongitude();
-			latitude = location.getLatitude();
-		}
+		status = (TextView) findViewById(R.id.status);
+		status.setOnClickListener(this);
+
+		if (lm == null)
+			lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+		lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 1000,
+				this);
+
 		// takePhoto();
 		// editText = (EditText) findViewById(R.id.edit_text);
 
 		// t = (TextView) findViewById(R.id.text);
 
 	}
+
+	// handler for the background updating
+	Handler progressHandler = new Handler() {
+		public void handleMessage(Message msg) {
+			dialog.setProgress(incrementBy);
+		}
+	};
+	private int incrementBy;
 
 	public void onClick(View v) {
 		// t.setText("Hello, " + editText.getText());
@@ -142,118 +165,20 @@ public class TiplineMain extends Activity implements OnClickListener {
 		if (v == submitData) {
 			Log.i("jamie TM.onClick submit data", "");
 
-			Communication comm = new Communication();
+			progressBar = progressBar = (ProgressBar) findViewById(R.id.progressbar_Horizontal);
+			// progressBar.setCancelable(true);
+			progressBar.setProgress(0);
 
-			TelephonyManager tMgr = (TelephonyManager) this
-					.getSystemService(Context.TELEPHONY_SERVICE);
-			String phoneNumber = tMgr.getLine1Number();
-
-			String tranId = phoneNumber + new java.util.Date().getTime();
-
-			Account[] accounts = AccountManager.get(this).getAccounts();
-			String email = "";
-			Log.e("jamie", "length=" + accounts.length);
-			/*
-			 * for (Account account : accounts) { // TODO: Check possibleEmail
-			 * against an email regex or treat // account.name as an email
-			 * address only for certain account.type values. possibleEmail +=
-			 * account.name; }
-			 */
-
-			if (accounts.length > 0) {
-				email = accounts[0].name;
-			}
-
-			List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>();
-			nameValuePairs.add(new BasicNameValuePair("description", desc
-					.getText() + ""));
-			nameValuePairs.add(new BasicNameValuePair("tranId", tranId));
-			nameValuePairs.add(new BasicNameValuePair("longitude", ""
-					+ longitude));
-			nameValuePairs
-					.add(new BasicNameValuePair("latitude", "" + latitude));
-
-			// email = "jdwfoo@gmail.com";
-
-			// phoneNumber="8435722790";
-			if (!sendAnonymous.isChecked()) {
-				nameValuePairs.add(new BasicNameValuePair("email", email));
-				nameValuePairs.add(new BasicNameValuePair("name",
-						getContactNameFromNumber(phoneNumber)));
-				nameValuePairs.add(new BasicNameValuePair("phoneNumber",
-						phoneNumber));
-			}
-			
-			comm = new Communication();
-			comm.setParams(nameValuePairs);
-			
-			comm.start();
-			
-			while (comm.getReturnCode() == comm.PROCESSING) {}
-			
-			boolean returnData = comm.getReturnCode() == comm.OK;
-
-			if (returnData) {
-				for (int i = 0; i < files.size(); i++) {
-					nameValuePairs = new ArrayList<NameValuePair>();
-					Log.e("jamie", "sending file i " + i + files.get(i));
-
-					try {
-						// File imageFile = new
-						// File(Environment.getExternalStorageDirectory(),files.get(i));
-						String image;
-						Bitmap smallImage = resizeImage(1024, 768,
-								 files.get(i));
-						// FileOutputStream out = new
-						// FileOutputStream(Environment.getExternalStorageDirectory()
-						// + "small" + files.get(i));
-						ByteArrayOutputStream out = new ByteArrayOutputStream();
-						smallImage.compress(Bitmap.CompressFormat.PNG, 90, out);
-
-						image = DataFormatter.parseBinaryToBase64(out
-								.toByteArray());
-
-						Log.e("jamie", image);
-
-						nameValuePairs.add(new BasicNameValuePair("tranId",
-								tranId));
-
-						nameValuePairs.add(new BasicNameValuePair("images",
-								image));
-					} catch (Exception e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} // (String)files.get(i);
-
-					comm = new Communication();
-					comm.setParams(nameValuePairs);
-					
-					comm.start();
-					
-					while (comm.getReturnCode() == comm.PROCESSING) {}
-					
-					returnData = comm.getReturnCode() == comm.OK;
-				}
-
-			}
-
-			if (returnData) {
-				desc.setText("files sent" + files.size());
-				Toast.makeText(this, "Tip Successfully Sent", Toast.LENGTH_LONG)
-						.show();
-				files.clear();
-				
-				setContentView(R.layout.main);
-
-				finish();
-			} else {
-				Toast.makeText(this,
-						"Data Transmit Failure, Please Try Again.",
-						Toast.LENGTH_LONG).show();
-			}
+			new SubmitAsyncTask(this).execute();
 
 			return;
 		}
+	}
+
+	private void sendData() {
+
+		setContentView(R.layout.main);
+
 	}
 
 	public void takePhoto() {
@@ -317,6 +242,7 @@ public class TiplineMain extends Activity implements OnClickListener {
 		outState.putDouble("longitude", longitude);
 		outState.putDouble("latitude", latitude);
 		outState.putSerializable("files", files);
+		// outState.putSerializable(key, value)
 		// outState.putSerializable("imageUri", coords);
 		super.onSaveInstanceState(outState);
 	}
@@ -355,8 +281,9 @@ public class TiplineMain extends Activity implements OnClickListener {
 				Uri selectedImage = data.getData();
 				ImageFile imageFile = convertImageUriToFile(selectedImage, this);
 				File f = imageFile.getFile();
-				Log.d("jamie", "the file name " + f.getPath() );
+				Log.d("jamie", "the file name " + f.getPath());
 				files.add(f.getPath().replaceAll(" ", "_"));
+				status.setText("   " + files.size() + " images");
 				// TODO Do something with the select image URI
 			}
 		}
@@ -370,7 +297,9 @@ public class TiplineMain extends Activity implements OnClickListener {
 				Log.e("jamie", "fileName " + fileName);
 
 				Log.e("jamie", "after creating image file" + imageFile);
-				files.add(Environment.getExternalStorageDirectory() + "/"	+ fileName);
+				files.add(Environment.getExternalStorageDirectory() + "/"
+						+ fileName);
+				status.setText("   " + files.size() + " images");
 				Log.e("jamie", "the files " + files);
 				// files.add(DataFormatter.parseBinaryToBase64(imageFile));
 
@@ -444,28 +373,27 @@ public class TiplineMain extends Activity implements OnClickListener {
 			}
 		}
 	}
-//
-//	public String callWebService(String q) {
-//
-//		HttpClient httpclient = new DefaultHttpClient();
-//		HttpGet request = new HttpGet(URL + q);
-//		request.addHeader("deviceId", deviceId);
-//		ResponseHandler<String> handler = new BasicResponseHandler();
-//		String result = null;
-//		try {
-//			result = httpclient.execute(request, handler);
-//		} catch (ClientProtocolException e) {
-//			e.printStackTrace();
-//		} catch (IOException e) {
-//			e.printStackTrace();
-//		}
-//		httpclient.getConnectionManager().shutdown();
-//		String tag = "TiplineMain.callWebService";
-//		// Log.i(tag, result);
-//		return result;
-//	} // end callWebService()
 
-
+	//
+	// public String callWebService(String q) {
+	//
+	// HttpClient httpclient = new DefaultHttpClient();
+	// HttpGet request = new HttpGet(URL + q);
+	// request.addHeader("deviceId", deviceId);
+	// ResponseHandler<String> handler = new BasicResponseHandler();
+	// String result = null;
+	// try {
+	// result = httpclient.execute(request, handler);
+	// } catch (ClientProtocolException e) {
+	// e.printStackTrace();
+	// } catch (IOException e) {
+	// e.printStackTrace();
+	// }
+	// httpclient.getConnectionManager().shutdown();
+	// String tag = "TiplineMain.callWebService";
+	// // Log.i(tag, result);
+	// return result;
+	// } // end callWebService()
 
 	@SuppressWarnings("deprecation")
 	private String getContactNameFromNumber(String number) {
@@ -491,7 +419,7 @@ public class TiplineMain extends Activity implements OnClickListener {
 
 		// return the original number if no match was found
 		return number;
-	}  
+	}
 
 	public boolean hasImageCaptureBug() {
 
@@ -525,14 +453,248 @@ public class TiplineMain extends Activity implements OnClickListener {
 		// resize the bit map
 		matrix.postScale(scaleWidth, scaleHeight);
 		// rotate the Bitmap
-		//matrix.postRotate(45);
+		// matrix.postRotate(45);
 
 		// recreate the new Bitmap
-		Bitmap resizedBitmap = Bitmap.createScaledBitmap(bitmapOrg, 640, 480, true);
-//		(bitmapOrg, 0, 0, oldWidth,
-//				oldHeight, matrix, true);
+		Bitmap resizedBitmap = Bitmap.createScaledBitmap(bitmapOrg, 640, 480,
+				true);
+		// (bitmapOrg, 0, 0, oldWidth,
+		// oldHeight, matrix, true);
 
 		return resizedBitmap;
+
+	}
+
+	public void onLocationChanged(Location arg0) {
+		Log.e("jamie", " onLocationChange lat long " + arg0.getLatitude()
+				+ ", " + arg0.getLongitude());
+		lm.removeUpdates(this);
+	}
+
+	public void onProviderDisabled(String arg0) {
+		// TODO Auto-generated method stub
+
+	}
+
+	public void onProviderEnabled(String arg0) {
+		// TODO Auto-generated method stub
+
+	}
+
+	public void onStatusChanged(String arg0, int arg1, Bundle arg2) {
+		// TODO Auto-generated method stub
+
+	}
+
+	// / Yet another inner class trying to hand
+	// / Progress bar
+
+	ProgressBar progressBar;
+
+	public class SubmitAsyncTask extends AsyncTask<Void, Integer, Boolean> {
+
+		int myProgress;
+		TiplineMain tip;
+
+		public SubmitAsyncTask(TiplineMain tip) {
+			this.tip = tip;
+		}
+
+		@Override
+		protected void onPostExecute(Boolean result) {
+			// TODO Auto-generated method stub
+			submitData.setClickable(true);
+			addPhoto.setClickable(true);
+			capturePhoto.setClickable(true);
+
+			AlertDialog.Builder alt_bld = new AlertDialog.Builder(TiplineMain.this);
+			alt_bld.setMessage("Hi Joe!  I hope this works like you want.").setCancelable(false)
+					.setPositiveButton("OK",
+							new DialogInterface.OnClickListener() {
+								public void onClick(DialogInterface dialog,
+										int id) {
+									dialog.cancel();
+								}
+							});
+			AlertDialog alert = alt_bld.create();
+			// Title for AlertDialog
+			alert.setTitle("We're on the case!!!");
+			// Icon for AlertDialog
+			alert.setIcon(R.drawable.icon);
+			alert.show();
+			progressBar.setProgress(0);
+
+		}
+
+		@Override
+		protected void onPreExecute() {
+			// TODO Auto-generated method stub
+			myProgress = 0;
+			submitData.setClickable(false);
+			addPhoto.setClickable(false);
+			capturePhoto.setClickable(false);
+		}
+
+		@Override
+		protected Boolean doInBackground(Void... params) {
+
+			Communication comm = new Communication();
+
+			incrementBy = 100 / (files.size() + 1);
+
+			TelephonyManager tMgr = (TelephonyManager) tip
+					.getSystemService(Context.TELEPHONY_SERVICE);
+			String phoneNumber = tMgr.getLine1Number();
+
+			String tranId = phoneNumber + new java.util.Date().getTime();
+
+			Account[] accounts = AccountManager.get(tip).getAccounts();
+			String email = "";
+			Log.e("jamie", "length=" + accounts.length);
+			/*
+			 * for (Account account : accounts) { // TODO: Check possibleEmail
+			 * against an email regex or treat // account.name as an email
+			 * address only for certain account.type values. possibleEmail +=
+			 * account.name; }
+			 */
+
+			if (accounts.length > 0) {
+				email = accounts[0].name;
+			}
+
+			try {
+				gps_enabled = lm
+						.isProviderEnabled(LocationManager.GPS_PROVIDER);
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+			try {
+				network_enabled = lm
+						.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+
+			Location location = null;
+			if (gps_enabled)
+				location = lm
+						.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+			else if (network_enabled)
+				location = lm
+						.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+
+			Log.e("jamie", " gps_enabled: " + gps_enabled);
+			Log.e("jamie", " network_enabled: " + network_enabled);
+			if (location != null) {
+				longitude = location.getLongitude();
+				latitude = location.getLatitude();
+			}
+
+			List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>();
+			nameValuePairs.add(new BasicNameValuePair("description", desc
+					.getText() + ""));
+			nameValuePairs.add(new BasicNameValuePair("tranId", tranId));
+			nameValuePairs.add(new BasicNameValuePair("longitude", ""
+					+ longitude));
+			nameValuePairs
+					.add(new BasicNameValuePair("latitude", "" + latitude));
+
+			// email = "jdwfoo@gmail.com";
+
+			// phoneNumber="8435722790";
+			if (!sendAnonymous.isChecked()) {
+				nameValuePairs.add(new BasicNameValuePair("email", email));
+				nameValuePairs.add(new BasicNameValuePair("name",
+						getContactNameFromNumber(phoneNumber)));
+				nameValuePairs.add(new BasicNameValuePair("phoneNumber",
+						phoneNumber));
+			}
+
+			comm = new Communication();
+			comm.setParams(nameValuePairs);
+			publishProgress(10);
+			try {
+				if (comm.postData()) {
+					// TODO: set progress
+					increment += incrementBy;
+					publishProgress(increment);
+
+				} else
+					return false;
+			} catch (ClientProtocolException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+				return false;
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+				return false;
+			}
+
+			comms = new ArrayList<Communication>();
+			for (int i = 0; i < files.size(); i++) {
+				nameValuePairs = new ArrayList<NameValuePair>();
+				Log.e("jamie", "sending file i " + i + files.get(i));
+
+				try {
+					// File imageFile = new
+					// File(Environment.getExternalStorageDirectory(),files.get(i));
+					String image;
+					Bitmap smallImage = resizeImage(1024, 768, files.get(i));
+					// FileOutputStream out = new
+					// FileOutputStream(Environment.getExternalStorageDirectory()
+					// + "small" + files.get(i));
+					ByteArrayOutputStream out = new ByteArrayOutputStream();
+					smallImage.compress(Bitmap.CompressFormat.PNG, 75, out);
+
+					image = DataFormatter
+							.parseBinaryToBase64(out.toByteArray());
+
+					Log.e("jamie", image);
+
+					nameValuePairs
+							.add(new BasicNameValuePair("tranId", tranId));
+
+					nameValuePairs.add(new BasicNameValuePair("images", image));
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					return false;
+				} // (String)files.get(i);
+
+				comm = new Communication();
+				comm.setParams(nameValuePairs);
+
+				try {
+					comm.postData();
+				} catch (ClientProtocolException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					return false;
+
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					return false;
+
+				}
+
+				increment += incrementBy;
+				publishProgress(increment);
+
+			}
+
+			// desc.setText("files sent" + files.size());
+
+			files.clear();
+			return true;
+
+		}
+
+		@Override
+		protected void onProgressUpdate(Integer... values) {
+			progressBar.setProgress(values[0]);
+		}
 
 	}
 
