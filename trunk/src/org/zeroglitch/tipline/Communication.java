@@ -43,7 +43,20 @@ public class Communication extends Thread implements Runnable {
 	public void run() {
 		// TODO Auto-generated method stub
 		try {
-			while (!postData());
+			Thread.sleep(1500);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		try {
+			while (!postData()) {
+				try {
+					Thread.sleep(500);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
 			
 			//if (postData()) {
 				RETURN_CODE = OK;

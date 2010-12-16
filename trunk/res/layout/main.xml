@@ -6,9 +6,11 @@
 	<LinearLayout android:orientation="horizontal"
 		android:layout_width="fill_parent" android:background="#003299"
 		android:layout_height="fill_parent" android:layout_weight="1">
-		<EditText android:text="" android:layout_width="wrap_content" android:id="@+id/desc"
-			android:layout_height="fill_parent" android:layout_weight="1" android:gravity="top"
-			android:padding="5px" android:maxHeight="250px" android:fadingEdge="horizontal|vertical"/>
+
+		<EditText android:text="" android:layout_width="wrap_content"
+			android:id="@+id/desc" android:layout_height="fill_parent"
+			android:layout_weight="1" android:gravity="top" android:padding="5px"
+			android:maxHeight="250px" android:fadingEdge="horizontal|vertical" />
 
 	</LinearLayout>
 
@@ -26,13 +28,13 @@
 
 	</LinearLayout>
 
-	<LinearLayout android:orientation="horizontal"
-		android:layout_width="fill_parent" android:layout_height="wrap_content"
-		android:layout_weight="0">
-
-		<CheckBox android:text="    Send Anonymous" android:id="@+id/sendAnonymous"
-			android:layout_width="wrap_content" android:layout_height="wrap_content"></CheckBox>
-
+	<LinearLayout android:layout_width="fill_parent"
+		android:id="@+id/LinearLayout01" android:orientation="horizontal"
+		android:layout_height="wrap_content" android:layout_weight="0">
+		<CheckBox android:layout_width="wrap_content" android:id="@+id/sendAnonymous"
+			android:layout_height="wrap_content" android:text="Send Anonymous"></CheckBox>
+		<TextView android:layout_width="wrap_content"
+			android:layout_height="wrap_content" android:text="" android:id="@+id/status"></TextView>
 	</LinearLayout>
 
 	<LinearLayout android:orientation="horizontal"
@@ -45,6 +47,12 @@
 
 
 	</LinearLayout>
-
+	<LinearLayout android:orientation="horizontal"
+		android:layout_width="fill_parent" android:layout_height="wrap_content"
+		android:layout_weight="0">
+		<ProgressBar android:layout_width="fill_parent"
+			android:layout_height="wrap_content" style="?android:attr/progressBarStyleHorizontal"
+			android:id="@+id/progressbar_Horizontal" android:max="100" />
+	</LinearLayout>
 </LinearLayout>
 
